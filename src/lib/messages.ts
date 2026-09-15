@@ -1,5 +1,7 @@
 // Keep original diagnostic details and codes intact for troubleshooting.
 const errors: Record<string, string> = {
+  REPAIR_UNAVAILABLE: '当前无法修复启动路径', REPAIR_STALE: '路径已变化，请刷新后重试',
+  ENVIRONMENT_WRITE_FAILED: '无法写入用户环境变量', REPAIR_VERIFY_FAILED: '路径已写入，但核验未通过',
   WINDOWS_API_ERROR: 'Windows 接口调用失败', ENVIRONMENT_READ_FAILED: '无法读取环境变量',
   INVALID_INSTALL_LOCATION: '安装位置无效', INVALID_CLI_PATH: 'CLI 路径无效',
   CLI_ACCESS_FAILED: '无法访问 CLI 文件', CLI_NOT_A_FILE: 'CLI 路径不是普通文件', CLI_METADATA_FAILED: '无法读取 CLI 文件信息',

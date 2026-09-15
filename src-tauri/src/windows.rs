@@ -124,7 +124,7 @@ pub(crate) fn package() -> Result<Option<AppPackage>, AppError> {
         .transpose()
 }
 
-fn current_path() -> Result<Option<String>, AppError> {
+pub(crate) fn current_path() -> Result<Option<String>, AppError> {
     let env =
         match RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags("Environment", KEY_READ) {
             Ok(key) => key,

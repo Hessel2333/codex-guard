@@ -1,5 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import type { AppError, CodexStatus } from '../types';
+import type { AppError, CodexStatus, RepairResult } from '../types';
 import { errorMessage } from './messages';
 
 export async function detect(): Promise<CodexStatus> {
@@ -15,4 +15,8 @@ export function appError(error: unknown): AppError {
     return { code: String(error.code), message: errorMessage(String(error.code), String(error.message)), detail: String(error.detail) };
   }
   return { code: 'UNEXPECTED_ERROR', message: '检测未能完成', detail: String(error) };
+}
+
+export function repairPath(status: CodexStatus): Promise<RepairResult> {
+  return invoke<RepairResult>('repair_cli_path', { confirmed: true, expectedPath: status.expected_cli_path, previousPath: status.current_cli_path });
 }

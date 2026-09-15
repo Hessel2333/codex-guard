@@ -21,6 +21,8 @@ export interface CodexStatus {
 export interface ProxySettings {
   http_proxy: string; all_proxy: string; no_proxy: string; app_path: string | null;
 }
+
+export interface RepairResult { status: CodexStatus; changed: boolean; previous_path: string | null; notification_sent: boolean }
 export interface ProxyProcess {
   pid: number; parent_pid: number; name: string; path: string | null;
   started_unix_ms: number | null; managed: boolean; error: string | null;

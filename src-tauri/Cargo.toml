@@ -1,6 +1,6 @@
 [package]
 name = "codex-guard"
-version = "0.2.0"
+version = "0.3.0"
 description = "Windows Codex startup health diagnostics"
 authors = ["Codex Guard contributors"]
 edition = "2021"

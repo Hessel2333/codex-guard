@@ -2,7 +2,7 @@ import type { CodexStatus } from '../types';
 import { healthCopy } from '../lib/presentation';
 import { Icon } from './Icon';
 
-export function Overview({ status, showDiagnostics }: { status: CodexStatus; showDiagnostics: () => void }) {
+export function Overview({ status, showDiagnostics, onRepair, busy }: { status: CodexStatus; showDiagnostics: () => void; onRepair: () => void; busy: boolean }) {
   const copy = healthCopy[status.health];
   const cliCorrect = status.path_matches && status.current_cli_exists === true && status.current_cli.accessible === true;
   return <>
@@ -15,7 +15,7 @@ export function Overview({ status, showDiagnostics }: { status: CodexStatus; sho
         <div><dt>CLI 路径</dt><dd>{!status.installed ? '不可用' : cliCorrect ? '正确' : '需要检查'}</dd></div>
         <div><dt>环境变量</dt><dd>{status.issues.some(i => i.code === 'ENVIRONMENT_READ_FAILED') ? '未知' : !status.current_cli_path ? '未设置' : status.path_matches ? '已同步' : '不一致'}</dd></div>
       </dl>
-      <div className="card-actions"><button onClick={showDiagnostics}>查看诊断 <Icon name="chevron" /></button></div>
+      <div className="card-actions">{status.health === 'repair_recommended' && <button className="primary-button" disabled={busy} onClick={onRepair}>一键修复路径</button>}<button onClick={showDiagnostics}>查看诊断 <Icon name="chevron" /></button></div>
     </section>
     <section className="card path-card" aria-labelledby="path-title">
       <h2 id="path-title">CLI 路径</h2>

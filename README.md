@@ -4,7 +4,7 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 
 应用名为 **Codex Guard**，npm/Cargo 包名及 EXE 文件名统一为 `codex-guard`。应用标识 `com.codexbootguard.desktop` 和 `%LOCALAPPDATA%\CodexBootGuard` 数据目录保留，以兼容已有配置与日志。
 
-技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.2.0**。
+技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.3.0**。
 
 ## 已实现
 
@@ -14,6 +14,14 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 - 查看安装位置、PackageFullName、PackageFamilyName、bundled CLI 大小/修改时间/可读性及可获取的文件版本。
 - 从 HKCU 持久化用户环境读取 CODEX_CLI_PATH，并与当前版本 bundled CLI 路径比较。
 - Overview、Diagnostics、Refresh、浅色/深色/跟随系统设置。
+
+### 一键修复启动路径（0.3.0）
+
+运行概览提示“建议修复启动路径”时，点击“一键修复路径”，确认旧路径和目标路径后，将当前用户 `HKCU\Environment\CODEX_CLI_PATH` 持久化为最新已安装 Codex 的内置 CLI 路径。无需管理员权限。
+
+后端重新检测安装包与文件，并拒绝过期确认、缺失或不可读的 CLI，以及无法读取的环境变量。写入后读回核验、通知 Windows 环境变更，再重新检测健康状态。写入失败或后续核验失败会显示实际错误。
+
+修复不会关闭 Codex；已运行的 Codex 和终端需重新打开，必要时注销后登录。路径已经正确时无需修复。代理启动仍可为新进程单独提供正确路径。
 
 ### Proxy Launcher
 
@@ -41,7 +49,7 @@ NO_PROXY                 = localhost,127.0.0.1,::1
 
 首次没有保存配置时，读取启动 Boot Guard 进程继承的 CODEX_HTTP_PROXY、CODEX_ALL_PROXY、CODEX_NO_PROXY、CODEX_APP；保存后以应用配置为准。
 
-代理变量通过 Rust Command 的子进程环境传入，Windows 环境变量名不区分大小写。不修改系统代理、不启用 TUN、不写全局 HTTP_PROXY。若桌面程序旁的 resources/codex.exe 存在，也会把这一 CLI 路径传给新进程，避免继承旧路径；不会改用户 CODEX_CLI_PATH。持久化修复/计划任务仍是后续功能。
+代理变量通过 Rust Command 的子进程环境传入，Windows 环境变量名不区分大小写。不修改系统代理、不启用 TUN、不写全局 HTTP_PROXY。若桌面程序旁的 resources/codex.exe 存在，也会把这一 CLI 路径传给新进程，避免继承旧路径；代理启动本身不会改用户 CODEX_CLI_PATH，持久化修改由运行概览中的一键修复完成。
 
 启动和重启都可能关闭现有 Codex，会先展示确认框。原生后端也拒绝没有确认的停止/启动请求。只管理当前 Windows 会话中，路径匹配选定桌面 EXE 或其 resources 子目录的相关进程；无法验证的进程不会按名称强制结束。退出前再次验证进程路径及创建时间，防止 PID 被复用。
 
@@ -129,4 +137,4 @@ src-tauri/test-fixtures/    无害子进程测试探针
 
 更多内容：[架构](docs/architecture.md)、[代理功能验收](docs/proxy-verification.md)。
 
-原始计划中的持久化修复 CODEX_CLI_PATH、计划任务、自动更新修复、完整 Repair History 尚未实现。当前新增的是原代理启动器功能。
+计划任务、更新后自动修复、完整 Repair History 尚未实现。当前支持手动一键修复 CODEX_CLI_PATH。

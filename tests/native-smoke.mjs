@@ -45,6 +45,18 @@ try {
   expect(status.install_location).toBe(reference.location);
   expect(status.current_cli_path).toBe(reference.current);
   if (status.installed) expect(status.expected_cli_path).toBe(path.win32.join(reference.location, 'app', 'resources', 'codex.exe'));
+  const repairRejected = await page.evaluate(async () => {
+    try { await window.__TAURI_INTERNALS__.invoke('repair_cli_path', { confirmed: false, expectedPath: '', previousPath: null }); return null; }
+    catch (error) { return error; }
+  });
+  expect(repairRejected.code).toBe('CONFIRMATION_REQUIRED');
+  const staleRepair = await page.evaluate(async () => {
+    try { await window.__TAURI_INTERNALS__.invoke('repair_cli_path', { confirmed: true, expectedPath: '', previousPath: null }); return null; }
+    catch (error) { return error; }
+  });
+  expect(['REPAIR_STALE', 'REPAIR_UNAVAILABLE']).toContain(staleRepair.code);
+  const afterRejectedRepair = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('get_codex_status'));
+  expect(afterRejectedRepair.current_cli_path).toBe(status.current_cli_path);
 
   await page.getByRole('button', { name: '设置', exact: true }).click();
   await page.getByLabel('外观').selectOption('light');
