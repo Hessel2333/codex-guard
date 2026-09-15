@@ -88,6 +88,8 @@ test('long paths fit native minimum and narrow preview widths', async ({ page })
     await page.setViewportSize({ width, height: 780 });
     await expect(page.getByRole('heading', { name: 'Codex 已就绪' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const iconBounds = await page.locator('.brand img').boundingBox();
+    expect(iconBounds?.width).toBe(iconBounds?.height);
   }
 });
 
