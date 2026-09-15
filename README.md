@@ -1,0 +1,132 @@
+# Codex Guard
+
+Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
+
+应用名为 **Codex Guard**，npm/Cargo 包名及 EXE 文件名统一为 `codex-guard`。应用标识 `com.codexbootguard.desktop` 和 `%LOCALAPPDATA%\CodexBootGuard` 数据目录保留，以兼容已有配置与日志。
+
+技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.2.0**。
+
+## 已实现
+
+### 启动健康检测
+
+- 原生 Windows PackageManager 查询当前用户 OpenAI.Codex，按四段数字版本选择最新 main package。
+- 查看安装位置、PackageFullName、PackageFamilyName、bundled CLI 大小/修改时间/可读性及可获取的文件版本。
+- 从 HKCU 持久化用户环境读取 CODEX_CLI_PATH，并与当前版本 bundled CLI 路径比较。
+- Overview、Diagnostics、Refresh、浅色/深色/跟随系统设置。
+
+### Proxy Launcher
+
+已把 `D:\Codes\codex\_proxy` 原有脚本功能移入 Tauri 应用的 **Proxy Launcher** 页面，使用 Rust / Windows 原生 API 实现。原目录保持不变，运行新应用不依赖该目录或 PowerShell 脚本。
+
+| 原功能 | Tauri 中的入口 |
+| --- | --- |
+| 普通代理启动 start | Launch with proxy |
+| 管理员代理启动 | Administrator launch，确认后由 Windows 请求 UAC |
+| restart | Restart，关闭已验证会话后以代理配置重新启动 |
+| stop | Stop Codex，确认后先请求正常关闭，再结束仍存活的目标进程 |
+| status | Processes，显示 PID、路径、启动时间及是否归本应用管理 |
+| log | Proxy logs，实时查看新日志或 Original launcher 原日志 |
+| 创建/刷新快捷方式 | Create / refresh shortcuts，普通 P 图标及管理员 A 图标 |
+| CODEX_HTTP_PROXY / CODEX_ALL_PROXY / CODEX_NO_PROXY | 可编辑并保存的代理设置 |
+| CODEX_APP | Desktop executable override |
+
+默认配置与旧脚本一致：
+
+```text
+HTTP_PROXY / HTTPS_PROXY = http://127.0.0.1:7890
+ALL_PROXY                = socks5://127.0.0.1:7890
+NO_PROXY                 = localhost,127.0.0.1,::1
+```
+
+首次没有保存配置时，读取启动 Boot Guard 进程继承的 CODEX_HTTP_PROXY、CODEX_ALL_PROXY、CODEX_NO_PROXY、CODEX_APP；保存后以应用配置为准。
+
+代理变量通过 Rust Command 的子进程环境传入，Windows 环境变量名不区分大小写。不修改系统代理、不启用 TUN、不写全局 HTTP_PROXY。若桌面程序旁的 resources/codex.exe 存在，也会把这一 CLI 路径传给新进程，避免继承旧路径；不会改用户 CODEX_CLI_PATH。持久化修复/计划任务仍是后续功能。
+
+启动和重启都可能关闭现有 Codex，会先展示确认框。原生后端也拒绝没有确认的停止/启动请求。只管理当前 Windows 会话中，路径匹配选定桌面 EXE 或其 resources 子目录的相关进程；无法验证的进程不会按名称强制结束。退出前再次验证进程路径及创建时间，防止 PID 被复用。
+
+管理员启动仅提升同一 EXE 的短生命周期 helper，主界面保留原权限；helper 在创建 WebView 前处理请求。UAC 必须使用同一个 Windows 账户，取消/失败会返回实际错误。快捷方式先打开相应启动确认框，再执行；原脚本创建的快捷方式不被替换。
+
+## 数据和日志
+
+```text
+%LOCALAPPDATA%\CodexBootGuard\proxy-settings.json
+%LOCALAPPDATA%\CodexBootGuard\proxy.log
+%LOCALAPPDATA%\CodexBootGuard\proxy.previous.log
+%LOCALAPPDATA%\CodexBootGuard\proxy-last-launch.json
+```
+
+旧脚本日志只读显示：`%LOCALAPPDATA%\codex-proxy\codex-proxy.log`。
+
+日志每次读取最近 64 KiB；新日志超过 512 KiB 时轮转。应用操作使用跨进程文件锁，JSON 先写临时文件再替换。新日志不记录代理密码。
+
+## 下载和安装
+
+从 [GitHub Releases](https://github.com/Hessel2333/codex-guard/releases/latest) 下载 Windows x64 版本：
+
+- `*-setup.exe`：交互式安装程序，推荐普通用户使用。
+- `*.msi`：Windows Installer 安装包。
+- `*-portable.zip`：解压后运行 `codex-guard.exe`，需要已安装 Microsoft Edge WebView2 Runtime。
+- `SHA256SUMS.txt`：发布文件的 SHA-256 校验值，可用 PowerShell `Get-FileHash -Algorithm SHA256 <文件路径>` 核对。
+
+支持 Windows 10 / Windows 11。当前发布文件未进行代码签名。
+
+## 运行和构建
+
+直接运行：`src-tauri\target\release\codex-guard.exe`。
+
+本地构建需要 Node.js、Rust MSVC 工具链和 Visual Studio C++ Build Tools；运行需要 WebView2 Runtime。
+
+```powershell
+npm ci
+npm run tauri dev
+```
+
+仅 `npm run dev` 是浏览器预览，系统检测和代理操作需要桌面运行时。
+
+```powershell
+cargo check --manifest-path src-tauri/Cargo.toml
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml --lib
+npm run test:ui
+npm run tauri build -- --debug --no-bundle
+npm run test:native
+npm run tauri build -- --no-bundle
+```
+
+生成安装包：
+
+```powershell
+npm run tauri build
+```
+
+安装包输出到 `src-tauri/target/release/bundle/`，便携 EXE 位于 `src-tauri/target/release/codex-guard.exe`。
+
+验证最终 Release：
+
+```powershell
+$env:GUARD_EXE = 'src-tauri/target/release/codex-guard.exe'
+npm run test:native
+Remove-Item Env:GUARD_EXE
+```
+
+`test:native` 使用独立 WebView2 测试目录和临时 CDP 端口 19327。它读取本机真实状态、验证拒绝未确认命令并取消启动确认框，不结束真实 Codex。代理启动/重启/停止的原生生命周期由 Rust 测试在临时目录中的小程序验证；Windows .lnk 快捷方式也在临时目录验证，不改真实桌面。
+
+项目 `.npmrc` 使用 PowerShell 运行 npm scripts，避免本机 npm/cmd shim 异常。所有系统逻辑位于 `src-tauri`，React 不拼接或执行 PowerShell。
+
+## 代码结构
+
+```text
+src/components/             Overview / Diagnostics / ProxyLauncher / Settings / ConfirmDialog
+src/lib/                    类型化 Tauri invoke 接口
+src-tauri/src/windows.rs    AppX、用户环境与文件只读检测
+src-tauri/src/model.rs      健康规则
+src-tauri/src/proxy/        配置、启动、进程、UAC、快捷方式、日志
+src-tauri/src/proxy_commands.rs
+                           异步 Tauri command
+src-tauri/test-fixtures/    无害子进程测试探针
+```
+
+更多内容：[架构](docs/architecture.md)、[代理功能验收](docs/proxy-verification.md)。
+
+原始计划中的持久化修复 CODEX_CLI_PATH、计划任务、自动更新修复、完整 Repair History 尚未实现。当前新增的是原代理启动器功能。

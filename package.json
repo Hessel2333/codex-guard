@@ -1,0 +1,28 @@
+{
+  "name": "codex-guard",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js --configLoader runner",
+    "build": "node scripts/build.mjs",
+    "preview": "node node_modules/vite/bin/vite.js preview --configLoader runner",
+    "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
+    "test:ui": "node node_modules/@playwright/test/cli.js test",
+    "test:native": "node tests/native-smoke.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16"
+  }
+}

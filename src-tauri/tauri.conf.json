@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Codex Guard",
+  "version": "0.2.0",
+  "identifier": "com.codexbootguard.desktop",
+  "build": {
+    "beforeDevCommand": "node node_modules/vite/bin/vite.js --configLoader runner",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node scripts/build.mjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Codex Guard",
+        "width": 1100,
+        "height": 780,
+        "minWidth": 680,
+        "minHeight": 580
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
