@@ -36,7 +36,7 @@ async function prepare(page: Page, mode: 'latest' | 'available' | 'failure' = 'l
 test('installed release notes appear once and can be reopened offline', async ({ page }) => {
   await prepare(page, 'failure', false);
   await expect(page.getByRole('dialog')).toContainText(`本次更新内容 · ${release.version}`);
-  await expect(page.getByRole('dialog')).toContainText('新增自动检查更新');
+  await expect(page.getByRole('dialog')).toContainText(release.notes.split('\n')[0]);
   await page.getByRole('button', { name: '知道了' }).click();
   await page.reload();
   await expect(page.getByRole('dialog')).toHaveCount(0);

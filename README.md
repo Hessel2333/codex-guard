@@ -4,7 +4,7 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 
 应用名为 **Codex Guard**，npm/Cargo 包名及 EXE 文件名统一为 `codex-guard`。应用标识 `com.codexbootguard.desktop` 和 `%LOCALAPPDATA%\CodexBootGuard` 数据目录保留，以兼容已有配置与日志。
 
-技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.4.0**。
+技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.4.1**。
 
 ## 已实现
 
