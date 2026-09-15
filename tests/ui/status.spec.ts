@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 import type { CodexStatus } from '../../src/types';
+import release from '../../src/release.json' with { type: 'json' };
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(version => { localStorage.setItem('guard.seenRelease', version); localStorage.setItem('guard.autoUpdateCheck', 'false'); }, release.version);
+});
 
 const install = 'C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.908.4834.0_x64__2p2nqsd0c76g0';
 const expected = `${install}\\app\\resources\\codex.exe`;

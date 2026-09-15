@@ -33,6 +33,17 @@ try {
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
   await expect(page.getByRole('heading', { name: 'Codex Guard', exact: true })).toBeVisible();
+  if (exe.includes(`${path.sep}release${path.sep}`)) {
+    const html = await readFile('dist/index.html', 'utf8');
+    const stylesheet = html.match(/href="([^"]+\.css)"/)?.[1];
+    expect(stylesheet).toBeTruthy();
+    await expect(page.locator('link[rel="stylesheet"]')).toHaveAttribute('href', stylesheet);
+  }
+  await expect(page.getByRole('heading', { name: '本次更新内容', exact: false })).toBeVisible();
+  await page.getByRole('button', { name: '知道了', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Codex Guard', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '本次更新内容', exact: false })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '刷新', exact: true })).toBeEnabled({ timeout: 20000 });
   const status = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('get_codex_status'));
   await writeFile(path.join(artifacts, 'native-status.json'), JSON.stringify(status, null, 2));
@@ -101,6 +112,11 @@ try {
   await page.getByLabel('外观').selectOption('system');
   await page.keyboard.press('Escape');
   expect(errors).toEqual([]);
+  if (process.env.GUARD_CHECK_UPDATES === '1') {
+    const availableUpdate = await page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:updater|check', { timeout: 20000 }));
+    expect(availableUpdate).toBeNull();
+    console.log('Published updater endpoint verified: current version is latest');
+  }
   console.log(JSON.stringify({ native: 'passed', health: status.health, version: status.version, reference: 'PowerShell current-user AppX + User environment matched', artifacts }, null, 2));
 } finally {
   if (browser) await browser.close();

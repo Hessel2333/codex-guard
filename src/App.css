@@ -195,3 +195,12 @@ select { padding: 9px 12px; border-radius: 6px; border: 1px solid var(--border);
   .tabs { gap: 6px; }
   .tabs button { font-size: 14px; padding-inline: 9px; }
 }
+/* Application updates */
+.update-settings { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
+.update-toggle { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+.update-toggle input { width: 16px; height: 16px; }
+.release-notes { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; max-height: 32vh; overflow-y: auto; margin: 16px 0; }
+.update-error { color: #b42318; overflow-wrap: anywhere; }
+.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.update-settings progress { width: 100%; }
+.update-settings .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }

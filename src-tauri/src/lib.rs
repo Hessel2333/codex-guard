@@ -29,6 +29,7 @@ async fn repair_cli_path(confirmed: bool, expected_path: String, previous_path: 
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             get_codex_status,
             repair_cli_path,

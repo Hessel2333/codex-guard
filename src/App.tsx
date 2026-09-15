@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppError, CodexStatus } from './types';
 import { appError, detect, repairPath } from './lib/api';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { ReleaseNotes } from './components/ReleaseNotes';
+import { useUpdates } from './lib/useUpdates';
 import { Icon } from './components/Icon';
 import { Overview } from './components/Overview';
 import { Diagnostics } from './components/Diagnostics';
@@ -16,6 +18,7 @@ function initialTheme(): Theme {
 }
 
 export default function App() {
+  const updates = useUpdates();
   const [status, setStatus] = useState<CodexStatus | null>(null);
   const [error, setError] = useState<AppError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,6 +85,7 @@ export default function App() {
     <div className="workspace">
     <header className="app-header"><div><h2>{tab === 'overview' ? '运行概览' : tab === 'diagnostics' ? '安装诊断' : '代理启动'}</h2><p>{tab === 'overview' ? '安装状态与启动路径，在一个地方掌握。' : tab === 'diagnostics' ? '查看当前用户的 Codex 安装与 CLI 信息。' : '管理代理配置、进程与启动日志。'}</p></div><button disabled={busy} onClick={() => tab === 'proxy' ? setProxyRefresh(n => n + 1) : void refresh()}><Icon name="refresh" className={busy ? 'spinning' : ''} />{busy ? '正在检查…' : '刷新'}</button></header>
     <main aria-busy={busy}>
+      {updates.available && <section className="card update-banner"><span>Codex Guard {updates.available.version} 已可更新</span><button onClick={() => setSettingsOpen(true)}>查看更新</button></section>}
       {tab !== 'proxy' && repairing && <section className="card" role="status">正在修复并核验启动路径…</section>}
       {tab !== 'proxy' && repairNotice && <section className="card" role="status">{repairNotice}</section>}
       {tab !== 'proxy' && repairError && <section className="card error-card" role="alert"><h2>{repairError.message}</h2><p>{repairError.detail}</p><code>{repairError.code}</code><div className="card-actions"><button disabled={busy} onClick={() => void refresh()}>重新检测</button></div></section>}
@@ -93,7 +97,8 @@ export default function App() {
     </main>
     <footer><span>{busy ? '正在处理…' : status ? `上次检查： ${new Date(status.checked_at_unix_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '尚未完成检查'}</span><span>{tab === 'proxy' ? '仅对启动的进程设置代理' : '检测与用户级路径修复'}</span></footer>
     </div>
-    {settingsOpen && <Settings theme={theme} setTheme={setTheme} close={() => setSettingsOpen(false)} />}
+    {settingsOpen && <Settings theme={theme} setTheme={setTheme} close={() => setSettingsOpen(false)} updates={updates} />}
+    {updates.showNotes && !settingsOpen && !repairTarget && <ReleaseNotes version={updates.version} notes={updates.notes} close={updates.closeNotes} />}
     {repairTarget && <ConfirmDialog title="修复启动路径" confirmLabel="确认修复" onConfirm={() => void runRepair()} onCancel={() => setRepairTarget(null)}>
       <p>将当前 Windows 用户的 CODEX_CLI_PATH 保存为当前 Codex 内置 CLI 路径，无需管理员权限。</p>
       <dl className="path-list"><div><dt>当前路径</dt><dd><code>{repairTarget.current_cli_path || '未设置'}</code></dd></div><div><dt>修复为</dt><dd><code>{repairTarget.expected_cli_path}</code></dd></div></dl>

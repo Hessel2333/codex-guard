@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
+import release from '../../src/release.json' with { type: 'json' };
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(version => { localStorage.setItem('guard.seenRelease', version); localStorage.setItem('guard.autoUpdateCheck', 'false'); }, release.version);
+});
 
 async function prepare(page: Page, intent: string | null = null) {
   await page.addInitScript(startupIntent => {

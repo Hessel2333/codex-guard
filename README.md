@@ -4,7 +4,7 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 
 应用名为 **Codex Guard**，npm/Cargo 包名及 EXE 文件名统一为 `codex-guard`。应用标识 `com.codexbootguard.desktop` 和 `%LOCALAPPDATA%\CodexBootGuard` 数据目录保留，以兼容已有配置与日志。
 
-技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.3.0**。
+技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.4.0**。
 
 ## 已实现
 
@@ -70,6 +70,14 @@ NO_PROXY                 = localhost,127.0.0.1,::1
 
 ## 下载和安装
 
+### 应用更新（0.4.0）
+
+在“设置 → 应用更新”中手动检查、查看新版说明、下载并安装更新。默认启动后检查一次，运行期间每 6 小时检查，可关闭自动检查。自动检查只提示，不会自动安装。
+
+更新完成后首次启动弹出当前安装版本的更新内容；关闭后不再重复显示，也可以在设置中再次查看。更新说明随安装包分发，离线可看。首次安装同样显示当前版本说明。
+
+0.3.0 及更早版本没有更新器，需手动安装 0.4.0 一次，后续即可应用内更新。更新安装会关闭 Codex Guard，安装器默认重启应用。便携版使用更新功能会启动安装程序，转为安装版。
+
 从 [GitHub Releases](https://github.com/Hessel2333/codex-guard/releases/latest) 下载 Windows x64 版本：
 
 - `*-setup.exe`：交互式安装程序，推荐普通用户使用。
@@ -109,6 +117,18 @@ npm run tauri build
 ```
 
 安装包输出到 `src-tauri/target/release/bundle/`，便携 EXE 位于 `src-tauri/target/release/codex-guard.exe`。
+
+### 发布带签名的更新
+
+更新 `src/release.json` 的版本和更新说明，并同步 package.json、package-lock.json、Cargo.toml、Cargo.lock、tauri.conf.json 版本。公钥固定在 Tauri 配置中，后续版本必须使用同一私钥签名。
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = Join-Path $env:USERPROFILE '.tauri/codex-guard-updater.key'
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ''
+npm run release
+```
+
+脚本生成 `release-artifacts/v<版本>/` 下的安装包、签名、`latest.json`、校验文件和发布说明。发布 GitHub Release 时必须同时上传安装包、`.sig` 和 `latest.json`，并设为最新正式版本。私钥保存在项目外，应安全备份；不能提交到 Git。更新器签名与 Windows Authenticode 代码签名不同。
 
 验证最终 Release：
 

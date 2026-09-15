@@ -16,6 +16,7 @@ dist-ssr
 release-artifacts/
 .env
 .env.*
+*.key
 !.env.example
 *.local
 
