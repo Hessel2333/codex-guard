@@ -36,7 +36,7 @@ pub(crate) fn data_dir() -> Result<PathBuf, AppError> {
 }
 
 #[cfg(test)]
-thread_local! { static TEST_STATE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) }; }
+thread_local! { pub(crate) static TEST_STATE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) }; }
 
 pub(crate) fn lock(name: &str) -> Result<fs::File, AppError> {
     let folder = data_dir()?;
@@ -141,7 +141,12 @@ pub struct LaunchReceipt {
     pub executable: String,
     pub administrator: bool,
     pub launched_at_unix_ms: u64,
+    #[serde(default)]
+    pub codex_home: Option<String>,
+    #[serde(default = "proxy_enabled_by_default")]
+    pub proxy_enabled: bool,
 }
+fn proxy_enabled_by_default() -> bool { true }
 
 #[derive(Debug, Serialize)]
 pub struct ProxyStatus {
@@ -240,6 +245,21 @@ fn discover(
     ))
 }
 
+pub(crate) struct DesktopInstance {
+    pub executable: PathBuf,
+    pub manual: bool,
+    pub processes: Vec<process::ProxyProcess>,
+}
+
+// Configuration discovery must not depend on a readable launch-history file.
+pub(crate) fn desktop_instance() -> Result<DesktopInstance, AppError> {
+    let settings = get_settings()?;
+    let mut processes = process::list()?;
+    let executable = discover(&settings, &processes)?;
+    process::mark_managed(&mut processes, &executable);
+    Ok(DesktopInstance { executable, manual: settings.app_path.is_some(), processes })
+}
+
 pub fn status() -> Result<ProxyStatus, AppError> {
     let settings = get_settings()?;
     let mut processes = process::list()?;
@@ -308,17 +328,26 @@ pub fn stop(confirmed: bool) -> Result<Vec<u32>, AppError> {
 }
 
 pub(crate) fn child_command(exe: &Path, settings: &ProxySettings) -> Command {
+    configured_child_command(exe, settings, None, true)
+}
+
+pub(crate) fn configured_child_command(exe: &Path, settings: &ProxySettings, home: Option<&Path>, use_proxy: bool) -> Command {
     use std::os::windows::process::CommandExt;
     use windows::Win32::System::Threading::CREATE_NO_WINDOW;
     let mut command = Command::new(exe);
     // Suppress a console for console-subsystem targets; desktop GUI windows remain visible.
     command.creation_flags(CREATE_NO_WINDOW.0);
     // Windows environment keys are case-insensitive. Command owns a child-only environment block.
-    command
-        .env("HTTP_PROXY", &settings.http_proxy)
-        .env("HTTPS_PROXY", &settings.http_proxy)
-        .env("ALL_PROXY", &settings.all_proxy)
-        .env("NO_PROXY", &settings.no_proxy);
+    if use_proxy {
+        command
+            .env("HTTP_PROXY", &settings.http_proxy)
+            .env("HTTPS_PROXY", &settings.http_proxy)
+            .env("ALL_PROXY", &settings.all_proxy)
+            .env("NO_PROXY", &settings.no_proxy);
+    } else {
+        for name in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"] { command.env_remove(name); }
+    }
+    if let Some(home) = home { command.env("CODEX_HOME", home); }
     if let Some(folder) = exe.parent() {
         command.current_dir(folder);
         let cli = folder.join("resources").join("codex.exe");
@@ -330,6 +359,13 @@ pub(crate) fn child_command(exe: &Path, settings: &ProxySettings) -> Command {
 }
 
 pub fn launch(confirmed: bool) -> Result<LaunchReceipt, AppError> {
+    launch_with_environment(confirmed, None, true, None, || Ok(()))
+}
+
+pub(crate) fn launch_with_environment(
+    confirmed: bool, home: Option<&Path>, use_proxy: bool, expected_exe: Option<&Path>,
+    preflight: impl FnOnce() -> Result<(), AppError>,
+) -> Result<LaunchReceipt, AppError> {
     // Start includes replacing the existing desktop session, as in the source launcher.
     if !confirmed {
         return Err(failure(
@@ -343,19 +379,27 @@ pub fn launch(confirmed: bool) -> Result<LaunchReceipt, AppError> {
         let settings = get_settings()?;
         settings.validate()?;
         let exe = discover(&settings, &process::list()?)?; // Discover before stopping the running fallback.
+        if let Some(expected) = expected_exe {
+            let actual = fs::canonicalize(&exe).map_err(|e| failure("DESKTOP_TARGET_STALE", "无法确认桌面安装", e))?;
+            let expected = fs::canonicalize(expected).map_err(|e| failure("DESKTOP_TARGET_STALE", "无法确认原桌面安装", e))?;
+            if !same_path(&actual, &expected) { return Err(failure("DESKTOP_TARGET_STALE", "桌面安装已变化，请重新确认", "No process was stopped.")); }
+        }
+        // Called under the launch lock, before any existing session is stopped.
+        preflight()?;
         let administrator = shell::is_elevated()?;
         let targets = tracked_processes(&exe)?;
         log(&format!(
-            "Proxy launch requested. Administrator: {administrator}. Executable: {}",
+            "Desktop launch requested. Proxy enabled: {use_proxy}. Administrator: {administrator}. Executable: {}",
             exe.display()
         ))?;
         process::stop(&targets)?;
         let started = now();
-        let mut child = child_command(&exe, &settings)
+        let mut command = if home.is_none() && use_proxy { child_command(&exe, &settings) } else { configured_child_command(&exe, &settings, home, use_proxy) };
+        let mut child = command
             .spawn()
             .map_err(|e| failure("LAUNCH_FAILED", "Cannot start Codex with proxy", e))?;
         log(&format!(
-            "Created launcher PID {} with child-only proxy environment",
+            "Created launcher PID {} with child-only configuration; proxy enabled: {use_proxy}",
             child.id()
         ))?;
         let deadline = std::time::Instant::now() + Duration::from_secs(30);
@@ -378,10 +422,13 @@ pub fn launch(confirmed: bool) -> Result<LaunchReceipt, AppError> {
                         executable: exe.display().to_string(),
                         administrator,
                         launched_at_unix_ms: started,
+                        codex_home: home.map(|p| p.to_string_lossy().into_owned()),
+                        proxy_enabled: use_proxy,
                     };
                     write_json(&data_dir()?.join("proxy-last-launch.json"), &receipt)?;
                     log(&format!(
-                        "Proxy desktop running. PID: {}. Administrator: {administrator}",
+                        "{} desktop running. PID: {}. Administrator: {administrator}",
+                        if use_proxy { "Proxy" } else { "Configured" },
                         receipt.pid
                     ))?;
                     return Ok(receipt);
@@ -457,6 +504,25 @@ mod tests {
     }
 
     #[test]
+    fn configuration_and_proxy_are_independent_child_environment_options() {
+        let settings = ProxySettings::default();
+        let exe = Path::new(r"C:\Tools\Codex\Codex.exe");
+        let home = Path::new(r"C:\Users\Fixture\selected-home");
+        let parent = (std::env::var_os("CODEX_HOME"), std::env::var_os("HTTP_PROXY"));
+        for use_proxy in [false, true] {
+            for selected in [None, Some(home)] {
+                let command = configured_child_command(exe, &settings, selected, use_proxy);
+                let env: std::collections::HashMap<_, _> = command.get_envs().collect();
+                if let Some(home) = selected { assert_eq!(env.get(std::ffi::OsStr::new("CODEX_HOME")), Some(&Some(home.as_os_str()))); }
+                for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"] {
+                    assert_eq!(env.get(std::ffi::OsStr::new(key)).unwrap().is_some(), use_proxy);
+                }
+            }
+        }
+        assert_eq!(parent, (std::env::var_os("CODEX_HOME"), std::env::var_os("HTTP_PROXY")));
+    }
+
+    #[test]
     fn native_proxy_launch_restart_stop_use_only_isolated_probe() {
         let temporary = tempfile::tempdir().unwrap();
         TEST_STATE.with(|state| *state.borrow_mut() = Some(temporary.path().join("state")));
@@ -489,6 +555,8 @@ mod tests {
         save_settings(settings.clone()).unwrap();
         assert_eq!(get_settings().unwrap(), settings);
         let first = launch(true).unwrap();
+        assert!(launch_with_environment(true, None, true, Some(&exe), || Err(failure("TEST_PREFLIGHT", "preflight refused", "fixture"))).is_err());
+        assert!(status().unwrap().processes.iter().any(|p| p.managed && p.pid == first.pid));
         let observed = fs::read_to_string(app.join("probe-env.txt")).unwrap();
         assert!(observed.contains("HTTP_PROXY=http://127.0.0.1:7897"));
         assert!(observed.contains("HTTPS_PROXY=http://127.0.0.1:7897"));
@@ -508,6 +576,30 @@ mod tests {
         let second = launch(true).unwrap();
         assert_ne!(first.pid, second.pid);
         assert_eq!(stop(true).unwrap(), vec![second.pid]);
+        let home = temporary.path().join("selected-home");
+        fs::create_dir(&home).unwrap();
+        let original = b"# >>> codex-purge managed block\n# configuration must remain untouched\nmodel='fixture'\n";
+        fs::write(home.join("config.toml"), original).unwrap();
+        for use_proxy in [true, false] {
+            let selection = crate::desktop::Selection { home: Some(home.to_string_lossy().into_owned()) };
+            let state = crate::desktop::status(selection.clone()).unwrap();
+            assert!(state.external_manager);
+            let target_identity = state.target.unwrap().identity;
+            let receipt = crate::desktop::launch(crate::desktop::LaunchRequest {
+                selection: selection.clone(), revision: state.revision.unwrap(), target_identity: target_identity.clone(), use_proxy, confirmed: true,
+            }).unwrap();
+            let observed = fs::read_to_string(app.join("probe-env.txt")).unwrap();
+            assert!(observed.lines().any(|line| line == format!("CODEX_HOME={}", receipt.codex_home.as_ref().unwrap())));
+            assert!(observed.lines().any(|line| line == if use_proxy { "HTTP_PROXY=http://127.0.0.1:7897" } else { "HTTP_PROXY=" }));
+            assert_eq!(receipt.proxy_enabled, use_proxy);
+            assert!(same_path(Path::new(receipt.codex_home.as_ref().unwrap()), &fs::canonicalize(&home).unwrap()));
+            assert_eq!(fs::read(home.join("config.toml")).unwrap(), original);
+            assert_eq!(crate::desktop::launch(crate::desktop::LaunchRequest {
+                selection, revision: "stale-revision".into(), target_identity, use_proxy, confirmed: true,
+            }).unwrap_err().code, "DESKTOP_STALE");
+            assert!(status().unwrap().processes.iter().any(|p| p.managed && p.pid == receipt.pid));
+            assert_eq!(stop(true).unwrap(), vec![receipt.pid]);
+        }
         assert!(!status().unwrap().processes.iter().any(|p| p.managed));
         assert_eq!(std::env::var_os("HTTP_PROXY"), before);
         assert!(tail(&data_dir().unwrap().join("proxy.log"))

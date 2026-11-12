@@ -30,3 +30,6 @@ release-artifacts/
 *.njsproj
 *.sln
 *.sw?
+
+# Local experiments and probe data are not release sources
+/tmp-*/

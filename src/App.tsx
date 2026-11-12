@@ -8,6 +8,7 @@ import { Icon } from './components/Icon';
 import { Overview } from './components/Overview';
 import { Diagnostics } from './components/Diagnostics';
 import { ProxyLauncher } from './components/ProxyLauncher';
+import { DesktopConfig } from './components/DesktopConfig';
 import { proxyStartupIntent } from './lib/proxy-api';
 import { Settings, type Theme } from './components/Settings';
 import './App.css';
@@ -26,8 +27,14 @@ export default function App() {
   const [repairing, setRepairing] = useState(false);
   const [repairError, setRepairError] = useState<AppError | null>(null);
   const [repairNotice, setRepairNotice] = useState('');
-  const [tab, setTab] = useState<'overview' | 'diagnostics' | 'proxy'>('overview');
+  const [tab, setTab] = useState<'overview' | 'diagnostics' | 'proxy' | 'desktop'>('overview');
   const [proxyRefresh, setProxyRefresh] = useState(0);
+  const [desktopRefresh, setDesktopRefresh] = useState(0);
+  const [desktopBusy, setDesktopBusy] = useState(false);
+  const [desktopDirty, setDesktopDirty] = useState(false);
+  const [nextTab, setNextTab] = useState<typeof tab | null>(null);
+  const healthTab = tab === 'overview' || tab === 'diagnostics';
+  const navigate = (next: typeof tab) => { if (desktopDirty && next !== tab) setNextTab(next); else setTab(next); };
   const [startupIntent, setStartupIntent] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
@@ -76,29 +83,32 @@ export default function App() {
       <div className="brand"><img src="/guard.png" alt="" /><div><h1>Codex Guard</h1><p>桌面工作台</p></div></div>
       <p className="nav-label">工作空间</p>
     <nav className="tabs" aria-label="主导航">
-      <button aria-current={tab === 'overview' ? 'page' : undefined} onClick={() => setTab('overview')}><Icon name="shield" />运行概览</button>
-      <button aria-current={tab === 'diagnostics' ? 'page' : undefined} onClick={() => setTab('diagnostics')}><Icon name="check" />安装诊断</button>
-      <button aria-current={tab === 'proxy' ? 'page' : undefined} onClick={() => setTab('proxy')}><Icon name="chevron" />代理启动器</button>
+      <button disabled={desktopBusy} aria-current={tab === 'overview' ? 'page' : undefined} onClick={() => navigate('overview')}><Icon name="shield" />运行概览</button>
+      <button disabled={desktopBusy} aria-current={tab === 'diagnostics' ? 'page' : undefined} onClick={() => navigate('diagnostics')}><Icon name="check" />安装诊断</button>
+      <button disabled={desktopBusy} aria-current={tab === 'proxy' ? 'page' : undefined} onClick={() => navigate('proxy')}><Icon name="chevron" />代理启动器</button>
+      <button disabled={desktopBusy} aria-current={tab === 'desktop' ? 'page' : undefined} onClick={() => navigate('desktop')}><Icon name="settings" />桌面配置</button>
     </nav>
     <div className="sidebar-bottom"><p><span className="local-dot" />本地工作空间</p><small>启动检查与代理管理</small><button onClick={() => setSettingsOpen(true)}><Icon name="settings" />设置</button></div>
     </aside>
     <div className="workspace">
-    <header className="app-header"><div><h2>{tab === 'overview' ? '运行概览' : tab === 'diagnostics' ? '安装诊断' : '代理启动'}</h2><p>{tab === 'overview' ? '安装状态与启动路径，在一个地方掌握。' : tab === 'diagnostics' ? '查看当前用户的 Codex 安装与 CLI 信息。' : '管理代理配置、进程与启动日志。'}</p></div><button disabled={busy} onClick={() => tab === 'proxy' ? setProxyRefresh(n => n + 1) : void refresh()}><Icon name="refresh" className={busy ? 'spinning' : ''} />{busy ? '正在检查…' : '刷新'}</button></header>
+    <header className="app-header"><div><h2>{tab === 'overview' ? '运行概览' : tab === 'diagnostics' ? '安装诊断' : tab === 'desktop' ? '桌面配置' : '代理启动'}</h2><p>{tab === 'overview' ? '安装状态与启动路径，在一个地方掌握。' : tab === 'diagnostics' ? '查看当前用户的 Codex 安装与 CLI 信息。' : tab === 'desktop' ? '核对桌面实例，管理指令与配置，随时恢复。' : '管理代理配置、进程与启动日志。'}</p></div><button disabled={busy || desktopBusy} onClick={() => tab === 'proxy' ? setProxyRefresh(n => n + 1) : tab === 'desktop' ? setDesktopRefresh(n => n + 1) : void refresh()}><Icon name="refresh" className={busy || desktopBusy ? 'spinning' : ''} />{busy || desktopBusy ? '正在检查…' : '刷新'}</button></header>
     <main aria-busy={busy}>
       {updates.available && <section className="card update-banner"><span>Codex Guard {updates.available.version} 已可更新</span><button onClick={() => setSettingsOpen(true)}>查看更新</button></section>}
-      {tab !== 'proxy' && repairing && <section className="card" role="status">正在修复并核验启动路径…</section>}
-      {tab !== 'proxy' && repairNotice && <section className="card" role="status">{repairNotice}</section>}
-      {tab !== 'proxy' && repairError && <section className="card error-card" role="alert"><h2>{repairError.message}</h2><p>{repairError.detail}</p><code>{repairError.code}</code><div className="card-actions"><button disabled={busy} onClick={() => void refresh()}>重新检测</button></div></section>}
+      {healthTab && repairing && <section className="card" role="status">正在修复并核验启动路径…</section>}
+      {healthTab && repairNotice && <section className="card" role="status">{repairNotice}</section>}
+      {healthTab && repairError && <section className="card error-card" role="alert"><h2>{repairError.message}</h2><p>{repairError.detail}</p><code>{repairError.code}</code><div className="card-actions"><button disabled={busy} onClick={() => void refresh()}>重新检测</button></div></section>}
       <div className="sr-only" role="status">{busy ? '正在检查 Codex 启动状态' : error ? error.message : status ? `检查完成： ${status.health.replace(/_/g, ' ')}` : ''}</div>
-      {tab !== 'proxy' && error && <section className="card error-card" role="alert"><p className="section-label">暂时无法检测</p><h2><span className="status-dot danger" />{error.message}</h2><p>{error.detail}</p><code>{error.code}</code><div className="card-actions"><button onClick={() => void refresh()} disabled={busy}>重试</button></div></section>}
-      {tab !== 'proxy' && !status && !error && !repairError && <section className="card health-card loading"><p className="section-label">Codex 启动状态</p><h2><span className="status-dot neutral" />正在检查安装…</h2><p className="health-description">正在读取当前 Windows 用户的应用包和 CLI 路径。</p></section>}
-      {tab !== 'proxy' && status && (tab === 'overview' ? <Overview status={status} busy={busy} onRepair={() => setRepairTarget(status)} showDiagnostics={() => setTab('diagnostics')} /> : <Diagnostics status={status} />)}
+      {healthTab && error && <section className="card error-card" role="alert"><p className="section-label">暂时无法检测</p><h2><span className="status-dot danger" />{error.message}</h2><p>{error.detail}</p><code>{error.code}</code><div className="card-actions"><button onClick={() => void refresh()} disabled={busy}>重试</button></div></section>}
+      {healthTab && !status && !error && !repairError && <section className="card health-card loading"><p className="section-label">Codex 启动状态</p><h2><span className="status-dot neutral" />正在检查安装…</h2><p className="health-description">正在读取当前 Windows 用户的应用包和 CLI 路径。</p></section>}
+      {healthTab && status && (tab === 'overview' ? <Overview status={status} busy={busy} onRepair={() => setRepairTarget(status)} showDiagnostics={() => setTab('diagnostics')} /> : <Diagnostics status={status} />)}
       {tab === 'proxy' && <ProxyLauncher refreshKey={proxyRefresh} startupIntent={startupIntent} onIntentHandled={() => setStartupIntent(null)} />}
+      {tab === 'desktop' && <DesktopConfig refreshKey={desktopRefresh} onBusyChange={setDesktopBusy} onDirtyChange={setDesktopDirty} />}
     </main>
-    <footer><span>{busy ? '正在处理…' : status ? `上次检查： ${new Date(status.checked_at_unix_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '尚未完成检查'}</span><span>{tab === 'proxy' ? '仅对启动的进程设置代理' : '检测与用户级路径修复'}</span></footer>
+    <footer><span>{busy || desktopBusy ? '正在处理…' : tab === 'desktop' ? '配置修改前自动备份' : status ? `上次检查： ${new Date(status.checked_at_unix_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '尚未完成检查'}</span><span>{tab === 'proxy' ? '仅对启动的进程设置代理' : tab === 'desktop' ? '不修改桌面安装包' : '检测与用户级路径修复'}</span></footer>
     </div>
     {settingsOpen && <Settings theme={theme} setTheme={setTheme} close={() => setSettingsOpen(false)} updates={updates} />}
     {updates.showNotes && !settingsOpen && !repairTarget && <ReleaseNotes version={updates.version} notes={updates.notes} close={updates.closeNotes} />}
+    {nextTab && <ConfirmDialog title="离开桌面配置" confirmLabel="放弃修改并离开" onCancel={() => setNextTab(null)} onConfirm={() => { setDesktopDirty(false); setTab(nextTab); setNextTab(null); }}><p>当前有未保存的修改。离开此页面会放弃这些修改，已保存的文件不会改变。</p></ConfirmDialog>}
     {repairTarget && <ConfirmDialog title="修复启动路径" confirmLabel="确认修复" onConfirm={() => void runRepair()} onCancel={() => setRepairTarget(null)}>
       <p>将当前 Windows 用户的 CODEX_CLI_PATH 保存为当前 Codex 内置 CLI 路径，无需管理员权限。</p>
       <dl className="path-list"><div><dt>当前路径</dt><dd><code>{repairTarget.current_cli_path || '未设置'}</code></dd></div><div><dt>修复为</dt><dd><code>{repairTarget.expected_cli_path}</code></dd></div></dl>

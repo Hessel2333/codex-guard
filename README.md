@@ -4,7 +4,7 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 
 应用名为 **Codex Guard**，npm/Cargo 包名及 EXE 文件名统一为 `codex-guard`。应用标识 `com.codexbootguard.desktop` 和 `%LOCALAPPDATA%\CodexBootGuard` 数据目录保留，以兼容已有配置与日志。
 
-技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.4.4**。
+技术栈：Tauri 2、React、TypeScript、Vite、Rust。当前版本 **0.5.0**。
 
 ## 已实现
 
@@ -14,6 +14,16 @@ Windows 10 / Windows 11 的 Codex 启动健康检测与代理启动工具。
 - 查看安装位置、PackageFullName、PackageFamilyName、bundled CLI 大小/修改时间/可读性及可获取的文件版本。
 - 从 HKCU 持久化用户环境读取 CODEX_CLI_PATH，并与当前版本 bundled CLI 路径比较。
 - Overview、Diagnostics、Refresh、浅色/深色/跟随系统设置。
+
+### 桌面配置管理
+
+「桌面配置」页面可核对桌面程序、内置引擎和配置目录，编辑用户级自定义指令、推理强度、操作确认与文件访问范围。先预览，再使用同一安装的内置 app-server 进行隔离兼容性检查；确认后自动备份并写入，不要求额外安装 Node.js 或 npm CLI。
+
+「启动此配置」支持同时勾选「使用已保存的代理」：所选 CODEX_HOME 与代理环境一起传入新进程，现有指令配置保持原样。配置与代理不是二选一；实际重启前会单独确认。`npm run package:local` 可生成本地 EXE、安装包和便携 ZIP，不需要自动更新签名私钥。
+
+支持逐项恢复、原文件字节级恢复、保留无关编辑、冲突拒绝和中断快照诊断。重复应用不覆盖已有状态。不会修改桌面安装包、全局启动器或项目 AGENTS.md；外部 codex-purge 受管块不会被静默接管。配置目录可能与 CLI 共用，界面会明确提示。
+
+兼容性检查不调用模型、不证明运行中会话或云端任务已生效，也不会自动重启 Codex。实现边界、备份位置和测试命令见[桌面配置管理](docs/desktop-configuration.md)。
 
 ### 一键修复启动路径（0.3.0）
 
@@ -105,7 +115,7 @@ cargo check --manifest-path src-tauri/Cargo.toml
 npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --lib
 npm run test:ui
-npm run tauri build -- --debug --no-bundle
+npm run build:desktop:debug
 npm run test:native
 npm run tauri build -- --no-bundle
 ```

@@ -1,6 +1,8 @@
 pub mod error;
 pub mod model;
 pub mod proxy;
+pub mod desktop;
+mod desktop_commands;
 mod proxy_commands;
 pub mod service;
 #[cfg(windows)]
@@ -33,6 +35,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_codex_status,
             repair_cli_path,
+            desktop_commands::get_desktop_config_status,
+            desktop_commands::preview_desktop_config,
+            desktop_commands::preview_desktop_restore,
+            desktop_commands::apply_desktop_config,
+            desktop_commands::restore_desktop_config,
+            desktop_commands::verify_desktop_config,
+            desktop_commands::launch_desktop_config,
             proxy_commands::get_proxy_status,
             proxy_commands::save_proxy_settings,
             proxy_commands::launch_codex_proxy,

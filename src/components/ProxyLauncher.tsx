@@ -79,7 +79,8 @@ export function ProxyLauncher({ refreshKey, startupIntent, onIntentHandled }: { 
   }
   const managed = status?.processes.filter(p => p.managed) ?? [];
   const lastLaunch = status?.last_launch;
-  const knownProxySession = lastLaunch && managed.some(p => p.pid === lastLaunch.pid && p.started_unix_ms === lastLaunch.started_unix_ms);
+  const knownSession = lastLaunch && managed.some(p => p.pid === lastLaunch.pid && p.started_unix_ms === lastLaunch.started_unix_ms);
+  const knownProxySession = knownSession && lastLaunch.proxy_enabled !== false;
   const actionDisabled = !!busy || dirty || !status?.executable;
   return <div className="proxy-page">
     <div className="page-heading"><div><h2>代理启动器</h2><p>为 Codex 进程设置代理，无需 TUN，不修改系统代理。</p></div><label className="live-toggle"><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} />自动刷新状态和日志</label></div>
@@ -87,7 +88,7 @@ export function ProxyLauncher({ refreshKey, startupIntent, onIntentHandled }: { 
     {notice && <p className="operation-notice success" role="status">{notice}</p>}
     {busy && <p className="operation-notice" role="status"><Icon name="refresh" className="spinning" />{busy}</p>}
     <section className="card proxy-session" aria-labelledby="proxy-session-title">
-      <div><p className="section-label">Codex 会话</p><h2 id="proxy-session-title"><span className={`status-dot ${managed.length ? 'success' : 'neutral'}`} />{!status ? error ? '暂时无法检测' : '正在检测 Codex…' : managed.length ? 'Codex 正在运行' : status.executable ? '可以启动' : '未检测到 Codex'}</h2><p className="session-detail">{knownProxySession ? '此会话由 Boot Guard 使用代理配置启动。' : managed.length ? '检测到现有会话，无法确认该会话的代理配置。' : status?.executable ? '已保存的配置将应用到新启动的 Codex 进程。' : '请在下方设置 Codex 桌面程序路径以继续。'}</p></div>
+      <div><p className="section-label">Codex 会话</p><h2 id="proxy-session-title"><span className={`status-dot ${managed.length ? 'success' : 'neutral'}`} />{!status ? error ? '暂时无法检测' : '正在检测 Codex…' : managed.length ? 'Codex 正在运行' : status.executable ? '可以启动' : '未检测到 Codex'}</h2><p className="session-detail">{knownProxySession ? '此会话由 Boot Guard 使用代理配置启动。' : knownSession ? '此会话由 Guard 启动，未注入 Guard 代理。' : managed.length ? '检测到现有会话，无法确认该会话的代理配置。' : status?.executable ? '已保存的配置将应用到新启动的 Codex 进程。' : '请在下方设置 Codex 桌面程序路径以继续。'}</p></div>
       <div className="proxy-actions"><button className="primary-button" disabled={actionDisabled} onClick={() => setAction('launch')}>使用代理启动</button><button disabled={actionDisabled} onClick={() => setAction('admin')}><Icon name="shield" />管理员启动</button><button disabled={actionDisabled || !managed.length} onClick={() => setAction('restart')}>重启</button><button className="danger-button" disabled={actionDisabled || !managed.length} onClick={() => setAction('stop')}>停止 Codex</button></div>
       {status?.discovery_error && <p className="discovery-error">{status.discovery_error.message}: {status.discovery_error.detail}</p>}
       <p className="detected-exe"><span>桌面程序路径</span><code>{status?.executable ?? '未检测到'}</code></p>

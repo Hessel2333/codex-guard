@@ -74,7 +74,6 @@ pub(crate) fn package() -> Result<Option<AppPackage>, AppError> {
         if id
             .Name()
             .map_err(|e| api_error("Read package name", e))?
-            .to_string()
             == "OpenAI.Codex"
         {
             let v = id

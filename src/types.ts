@@ -29,6 +29,7 @@ export interface ProxyProcess {
 }
 export interface LaunchReceipt {
   pid: number; started_unix_ms: number; executable: string; administrator: boolean; launched_at_unix_ms: number;
+  codex_home?: string | null; proxy_enabled?: boolean;
 }
 export interface ProxyStatus {
   settings: ProxySettings; settings_path: string; executable: string | null;
