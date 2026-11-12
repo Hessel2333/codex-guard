@@ -17,6 +17,7 @@ release-artifacts/
 .env
 .env.*
 *.key
+*.key.dpapi
 !.env.example
 *.local
 

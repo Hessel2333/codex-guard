@@ -16,7 +16,7 @@ async function prepare(page: Page, mode: 'latest' | 'available' | 'failure' = 'l
         (window as any).updateCalls.push(command);
         if (command === 'plugin:updater|check') {
           if (mode === 'failure') throw 'network unavailable';
-          return mode === 'latest' ? null : { rid: 42, currentVersion: version, version: '0.5.0', body: '新版功能说明\n修复问题', rawJson: {} };
+          return mode === 'latest' ? null : { rid: 42, currentVersion: version, version: '9.0.0', body: '新版功能说明\n修复问题', rawJson: {} };
         }
         if (command === 'plugin:updater|download_and_install') {
           args.onEvent.onmessage({ event: 'Started', data: { contentLength: 100 } });
@@ -59,7 +59,7 @@ test('manual check reports latest and automatic preference persists', async ({ p
 
 test('automatic check finds update but never starts installing', async ({ page }) => {
   await prepare(page, 'available', true, true);
-  await expect(page.getByText('Codex Guard 0.5.0 已可更新')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByText('Codex Guard 9.0.0 已可更新')).toBeVisible({ timeout: 7000 });
   expect(await page.evaluate(() => (window as any).updateCalls.filter((c: string) => c.includes('download')))).toEqual([]);
   await page.getByRole('button', { name: '查看更新', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('新版功能说明');
